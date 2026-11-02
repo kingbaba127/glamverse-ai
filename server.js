@@ -135,6 +135,26 @@ app.get('/api/admin/orders', adminOnly, async (req, res) => {
   }
 });
 
+app.delete('/api/admin/orders/:id', adminOnly, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "DELETE FROM orders WHERE id = $1 AND status = 'pending' RETURNING id",
+      [req.params.id]
+    );
+
+    if (!result.rowCount) {
+      return res.status(404).json({
+        error: 'Pending order नहीं मिला। Approved orders delete नहीं होंगे।'
+      });
+    }
+
+    res.json({ ok: true, message: 'Pending order सफलतापूर्वक delete हुआ।' });
+  } catch (e) {
+    console.error('Order delete failed:', e.message);
+    res.status(500).json({ error: 'Order delete नहीं हो सका।' });
+  }
+});
+
 app.post('/api/admin/orders/:id/approve', adminOnly, async (req, res) => {
   try {
     const result = await pool.query(

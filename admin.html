@@ -15,7 +15,7 @@ async function load(){
    throw new Error('Login session समाप्त। दोबारा Login करें।');
   }
   if(!r.ok) throw new Error(data.error||'Orders लोड नहीं हुए');
-  box.innerHTML=data.length?data.map(o=>`<div class="order"><b>${esc(o.product)}</b> — ₹${o.amount}<p>Email: ${esc(o.email)}</p><p>UTR: ${esc(o.utr)}</p><p>Order: ${esc(o.id)}</p><p>Status: <b class="${o.status}">${esc(o.status)}</b></p><p class="muted">${new Date(o.createdAt).toLocaleString()}</p>${o.status==='pending'?`<button onclick="approve('${o.id}')">पेमेंट चेक करके PDF भेजें</button>`:''}</div>`).join(''):'अभी कोई ऑर्डर नहीं है।';
+  box.innerHTML=data.length?data.map(o=>`<div class="order"><b>${esc(o.product)}</b> — ₹${o.amount}<p>Email: ${esc(o.email)}</p><p>UTR: ${esc(o.utr)}</p><p>Order: ${esc(o.id)}</p><p>Status: <b class="${o.status}">${esc(o.status)}</b></p><p class="muted">${new Date(o.createdAt).toLocaleString()}</p>${o.status==='pending'?`<button onclick="approve('${o.id}')">पेमेंट चेक करके PDF भेजें</button> <button style="background:#e05252" onclick="deleteOrder('${o.id}')">Delete Order</button>`:''}</div>`).join(''):'अभी कोई ऑर्डर नहीं है।';
   msg.textContent='ऑर्डर सफलतापूर्वक अपडेट हुए।';
  } catch(e) {
   box.textContent='समस्या: '+e.message;
@@ -23,6 +23,13 @@ async function load(){
  }
 }
 async function approve(id){if(!confirm('पहले अपने UPI ऐप में पेमेंट की पुष्टि करें। क्या PDF ईमेल करनी है?'))return;let r=await fetch('/api/admin/orders/'+encodeURIComponent(id)+'/approve',{method:'POST'});let d=await r.json();msg.textContent=d.message||d.error;load()}
+async function deleteOrder(id){
+ if(!confirm('क्या आप इस Pending Order को हमेशा के लिए हटाना चाहते हैं?'))return;
+ const r=await fetch('/api/admin/orders/'+encodeURIComponent(id),{method:'DELETE'});
+ const d=await r.json();
+ document.getElementById('msg').textContent=d.message||d.error;
+ await load();
+}
 async function logout(){await fetch('/admin/logout',{method:'POST'});location.reload()}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 </script></body></html>

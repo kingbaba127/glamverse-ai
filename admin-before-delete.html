@@ -1,0 +1,28 @@
+<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GlamVerse AI Admin</title>
+<style>body{font-family:system-ui;background:#100b18;color:#fff;margin:0;padding:20px}.box{max-width:900px;margin:25px auto;background:#21182b;padding:20px;border-radius:16px}input,button{padding:12px;border-radius:9px;border:1px solid #665078;margin:5px 0}input{background:#130e1b;color:white;width:95%}button{background:#d66bc4;color:#160d1b;font-weight:bold;cursor:pointer}.order{border:1px solid #60496d;border-radius:12px;padding:14px;margin:12px 0;overflow-wrap:anywhere}.muted{color:#c6b8ce}.pending{color:#ffd27d}.approved{color:#8bf0b1}</style></head><body><div class="box"><h1>GlamVerse AI — Admin</h1><div id="login"><p class="muted">Admin password डालें।</p><input id="pw" type="password" placeholder="Admin password"><button onclick="login()">Login</button></div><div id="panel" hidden><button onclick="load()">Refresh Orders</button> <button onclick="logout()">Logout</button><div id="orders"></div></div><p id="msg" class="muted"></p></div><script>
+async function login(){let r=await fetch('/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pw').value})});let d=await r.json();if(!r.ok){msg.textContent=d.error;return}loginBox();load()}
+function loginBox(){document.getElementById('login').hidden=true;document.getElementById('panel').hidden=false}
+async function load(){
+ const box=document.getElementById('orders');
+ const msg=document.getElementById('msg');
+ box.textContent='ऑर्डर लोड हो रहे हैं...';
+ try {
+  const r=await fetch('/api/admin/orders',{cache:'no-store'});
+  const data=await r.json();
+  if(r.status===401){
+   document.getElementById('login').hidden=false;
+   document.getElementById('panel').hidden=true;
+   throw new Error('Login session समाप्त। दोबारा Login करें।');
+  }
+  if(!r.ok) throw new Error(data.error||'Orders लोड नहीं हुए');
+  box.innerHTML=data.length?data.map(o=>`<div class="order"><b>${esc(o.product)}</b> — ₹${o.amount}<p>Email: ${esc(o.email)}</p><p>UTR: ${esc(o.utr)}</p><p>Order: ${esc(o.id)}</p><p>Status: <b class="${o.status}">${esc(o.status)}</b></p><p class="muted">${new Date(o.createdAt).toLocaleString()}</p>${o.status==='pending'?`<button onclick="approve('${o.id}')">पेमेंट चेक करके PDF भेजें</button>`:''}</div>`).join(''):'अभी कोई ऑर्डर नहीं है।';
+  msg.textContent='ऑर्डर सफलतापूर्वक अपडेट हुए।';
+ } catch(e) {
+  box.textContent='समस्या: '+e.message;
+  msg.textContent='Refresh असफल';
+ }
+}
+async function approve(id){if(!confirm('पहले अपने UPI ऐप में पेमेंट की पुष्टि करें। क्या PDF ईमेल करनी है?'))return;let r=await fetch('/api/admin/orders/'+encodeURIComponent(id)+'/approve',{method:'POST'});let d=await r.json();msg.textContent=d.message||d.error;load()}
+async function logout(){await fetch('/admin/logout',{method:'POST'});location.reload()}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+</script></body></html>
