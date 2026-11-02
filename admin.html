@@ -15,14 +15,14 @@ async function load(){
    throw new Error('Your login session has expired. Please log in again.');
   }
   if(!r.ok) throw new Error(data.error||'Failed to load orders.');
-  box.innerHTML=data.length?data.map(o=>`<div class="order"><b>${esc(o.product)}</b> — ₹${o.amount}<p>Email: ${esc(o.email)}</p><p>UTR: ${esc(o.utr)}</p><p>Order: ${esc(o.id)}</p><p>Status: <b class="${o.status}">${esc(o.status)}</b></p><p class="muted">${new Date(o.createdAt).toLocaleString()}</p>${o.status==='pending'?`<button onclick="approve('${o.id}')">Verify Payment & Unlock Download</button> <button style="background:#e05252" onclick="deleteOrder('${o.id}')">Delete Order</button>`:''}</div>`).join(''):'No orders available.';
+  box.innerHTML=data.length?data.map(o=>`<div class="order"><b>${esc(o.product)}</b> — ₹${o.amount}<p>Email: ${esc(o.email)}</p><p>UTR: ${esc(o.utr)}</p><p>Order: ${esc(o.id)}</p><p>Status: <b class="${o.status}">${esc(o.status)}</b></p>${o.status==="approved"?'<p style="color:#8bf0b1;font-weight:bold">✓ Customer PDF Download Unlocked</p>':'<p style="color:#ffd27d">Waiting for payment verification</p>'}<p class="muted">${new Date(o.createdAt).toLocaleString()}</p>${o.status==='pending'?`<button onclick="approve('${o.id}')">✓ Verify Payment & Unlock PDF</button> <button style="background:#e05252" onclick="deleteOrder('${o.id}')">Delete Order</button>`:''}</div>`).join(''):'No orders available.';
   msg.textContent='Orders loaded successfully.';
  } catch(e) {
   box.textContent='Error: '+e.message;
   msg.textContent='Refresh failed';
  }
 }
-async function approve(id){if(!confirm('Verify the payment in your UPI app first. Do you want to approve payment and unlock the download?'))return;let r=await fetch('/api/admin/orders/'+encodeURIComponent(id)+'/approve',{method:'POST'});let d=await r.json();msg.textContent=d.message||d.error;load()}
+async function approve(id){if(!confirm('Verify the payment in your UPI app first. Verify the payment in your UPI app first. Unlock PDF download for this customer?'))return;let r=await fetch('/api/admin/orders/'+encodeURIComponent(id)+'/approve',{method:'POST'});let d=await r.json();msg.textContent=d.message||d.error;load()}
 async function deleteOrder(id){
  if(!confirm('Are you sure you want to permanently delete this pending order?'))return;
  const r=await fetch('/api/admin/orders/'+encodeURIComponent(id),{method:'DELETE'});

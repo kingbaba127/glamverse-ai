@@ -30,6 +30,19 @@ footer{border-top:1px solid #ffffff15;padding:28px 0;color:var(--muted);font-siz
 .modal{display:none;position:fixed;inset:0;background:#05030bd9;z-index:5;padding:18px;overflow:auto}.modal.show{display:grid;place-items:center}.dialog{width:min(520px,100%);background:#171321;border:1px solid #5b426c;border-radius:22px;padding:24px;position:relative}.close{position:absolute;right:16px;top:14px;background:#2b2236;border:0;color:white;border-radius:9px;padding:7px 11px;cursor:pointer}
 .field{width:100%;padding:13px;border:1px solid #4a3b55;background:#0e0b15;border-radius:11px;color:white;margin:7px 0 14px;font-size:14px}.methods{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:8px 0 16px}.method{border:1px solid #51405e;background:#211a2b;color:white;border-radius:12px;padding:12px;text-align:left;cursor:pointer}.method.active{border-color:var(--pink);background:#38223b}.notice{font-size:12px;color:#eac7df;background:#38223b;padding:12px;border-radius:11px;line-height:1.5}.paybtn{width:100%;margin-top:14px}.tiny{font-size:11px;color:var(--muted);line-height:1.5}
 @media(max-width:760px){.hero{grid-template-columns:1fr;padding-top:48px}.heroart{min-height:285px}.products{grid-template-columns:1fr}.stats{gap:7px}.stat{padding:12px}.stat b{font-size:18px}.features{grid-template-columns:1fr}.navright a:not(.pill){display:none}.sectionhead{display:block}}
+
+.order-dashboard{margin-top:16px;padding:16px;border:1px solid #76518e;border-radius:16px;background:linear-gradient(145deg,#24152f,#15101e);box-shadow:0 8px 30px #0004}
+.order-dashboard h3{margin:0 0 12px;font-size:18px}
+.order-id-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#100b18;padding:12px;border-radius:10px;overflow-wrap:anywhere}
+.order-id-row button,.download-action{border:0;border-radius:10px;padding:11px 14px;font-weight:800;cursor:pointer}
+.order-status{display:inline-block;padding:6px 11px;border-radius:30px;background:#493b22;color:#ffd27d;font-size:12px;font-weight:800;margin:12px 0}
+.order-status.approved{background:#153d2c;color:#8bf0b1}
+.order-progress{height:10px;background:#382b43;border-radius:20px;overflow:hidden;margin:12px 0}
+.order-progress span{display:block;height:100%;width:0;background:linear-gradient(90deg,#f45bb9,#a879ff);transition:width .2s}
+.order-actions{display:grid;gap:9px;margin-top:12px}
+.download-action{background:linear-gradient(90deg,#f34fb1,#9667ff);color:#180d24;width:100%}
+.download-action.secondary{background:#2d2340;color:white;border:1px solid #73578a}
+.order-note{font-size:12px;color:#cbbbd5;line-height:1.6;margin:8px 0}
 </style>
 </head>
 <body>
@@ -66,6 +79,20 @@ footer{border-top:1px solid #ffffff15;padding:28px 0;color:var(--muted);font-siz
   <input class="field" id="utrInput" type="text" inputmode="numeric" maxlength="30" placeholder="Example: 123456789012">
   <button type="button" class="btn secondary" style="width:100%" onclick="submitUtr()">Submit UTR</button>
   <p id="utrStatus" class="tiny" aria-live="polite" style="margin:10px 0 0"></p>
+<div id="orderDashboard" class="order-dashboard" hidden aria-live="polite">
+  <h3>✨ Your GlamVerse Order</h3>
+  <div class="order-id-row">
+    <div><small class="tiny">ORDER ID</small><br><strong id="orderIdValue">—</strong></div>
+    <button type="button" onclick="copyOrderId()">Copy</button>
+  </div>
+  <div id="orderStatusBadge" class="order-status">PENDING VERIFICATION</div>
+  <p id="orderMessage" class="order-note">Your payment is waiting for manual verification.</p>
+  <div class="order-progress"><span id="orderProgressBar"></span></div>
+  <div id="downloadActions" class="order-actions">
+    <button type="button" class="download-action secondary" onclick="checkOrder(currentOrderId)">Check Order Status</button>
+  </div>
+  <p id="downloadMessage" class="order-note"></p>
+</div>
 </div>
 <button class="btn paybtn" onclick="demoPay()">Proceed to Payment</button><p class="tiny" style="margin-bottom:0">UPI payments are manual. Submitting your UTR creates an order. After admin approval, you can check your order here and download your PDF.</p></div></div>
 <script>
@@ -73,89 +100,128 @@ let selected={name:'',price:0},method='UPI';
 function checkout(name,price){selected={name,price};document.getElementById('orderName').textContent=name;document.getElementById('orderPrice').textContent='₹'+price;document.getElementById('upiQrPanel').style.display='block';document.getElementById('checkoutModal').classList.add('show');}
 function closeCheckout(){document.getElementById('checkoutModal').classList.remove('show')}
 function chooseMethod(el,m){method=m;document.querySelectorAll('.method').forEach(x=>x.classList.remove('active'));el.classList.add('active');document.getElementById('upiQrPanel').style.display=(m==='UPI'?'block':'none');document.getElementById('paymentNotice').textContent=m==='UPI'?'Scan the QR code using any UPI app and pay the exact amount shown above. Payments are manually verified; automatic payment gateway is not connected.':m+' payment is not connected yet. Choose UPI / QR Code to view the seller QR.'}
-async function submitUtr(){
- const email=document.getElementById('buyerEmail').value.trim();
- const utr=document.getElementById('utrInput').value.trim();
- const status=document.getElementById('utrStatus');
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){status.textContent='Please enter a valid email address first.';return;}
- if(!/^[A-Za-z0-9-]{8,30}$/.test(utr)){status.textContent='Please enter a valid UTR / Transaction ID (at least 8 letters or digits).';return;}
- const btn=document.querySelector('#utrBox button');
- btn.disabled=true; btn.textContent='Submitting...';
- try {
-   const response=await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,utr,product:selected.name,amount:selected.price})});
-   const data=await response.json();
-   if(!response.ok) throw new Error(data.error||'Order submission failed.');
-   localStorage.setItem('gv_order_'+data.orderId, data.accessToken);
-status.textContent='Order submitted successfully! Order ID: '+data.orderId+'. Payment is pending verification.';
-const checkBtn=document.createElement('button');
-checkBtn.type='button';
-checkBtn.textContent='Check Order Status';
-checkBtn.style.cssText='display:block;margin-top:12px;padding:12px;border-radius:8px;background:#d66bc4;color:#160d1b;font-weight:bold;border:0;cursor:pointer';
-checkBtn.onclick=()=>checkOrder(data.orderId);
-status.appendChild(document.createElement('br'));
-status.appendChild(checkBtn);
-   document.getElementById('utrInput').value='';
- } catch(e) {
-   status.textContent='Order submission failed: '+e.message+'। Please try again when the website server is available.';
- } finally {btn.disabled=false;btn.textContent='Submit UTR';}
+
+let currentOrderId = '';
+let lastDownloadedUrl = '';
+
+function showOrderDashboard(id,status){
+  currentOrderId=id;
+  document.getElementById('orderDashboard').hidden=false;
+  document.getElementById('orderIdValue').textContent=id;
+  const badge=document.getElementById('orderStatusBadge');
+  badge.textContent=status==='approved'?'APPROVED':'PENDING VERIFICATION';
+  badge.className='order-status'+(status==='approved'?' approved':'');
+  document.getElementById('orderMessage').textContent=status==='approved'
+    ?'Payment verified. Your PDF is ready.'
+    :'Your order has been received. The seller will verify your payment.';
+  document.getElementById('orderProgressBar').style.width=status==='approved'?'100%':'35%';
+  document.getElementById('downloadActions').innerHTML=
+    status==='approved'
+    ?'<button type="button" class="download-action" onclick="downloadOrder(currentOrderId)">⬇ Download PDF</button>'
+    :'<button type="button" class="download-action secondary" onclick="checkOrder(currentOrderId)">Check Order Status</button>';
 }
-async function checkOrder(id){
+
+async function copyOrderId(){
+  if(!currentOrderId)return;
+  try{
+    await navigator.clipboard.writeText(currentOrderId);
+    document.getElementById('downloadMessage').textContent='Order ID copied.';
+  }catch(e){
+    document.getElementById('downloadMessage').textContent='Order ID: '+currentOrderId;
+  }
+}
+
+async function submitUtr(){
+  const email=document.getElementById('buyerEmail').value.trim();
+  const utr=document.getElementById('utrInput').value.trim();
   const status=document.getElementById('utrStatus');
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    status.textContent='Please enter a valid email address first.';return;
+  }
+  if(!/^[A-Za-z0-9-]{8,30}$/.test(utr)){
+    status.textContent='Please enter a valid UTR / Transaction ID.';return;
+  }
+  const btn=document.querySelector('#utrBox button');
+  btn.disabled=true;btn.textContent='Submitting...';
+  try{
+    const response=await fetch('/api/orders',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email,utr,product:selected.name,amount:selected.price})
+    });
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.error||'Order submission failed.');
+    if(!data.accessToken)throw new Error('Secure order access token was not returned. Please contact support before retrying.');
+    localStorage.setItem('gv_order_'+data.orderId,data.accessToken);
+    status.textContent='Your order has been submitted successfully.';
+    showOrderDashboard(data.orderId,'pending');
+    document.getElementById('utrInput').value='';
+  }catch(e){
+    status.textContent='Order submission failed: '+e.message;
+  }finally{
+    btn.disabled=false;btn.textContent='Submit UTR';
+  }
+}
+
+async function checkOrder(id){
+  const status=document.getElementById('downloadMessage');
   const token=localStorage.getItem('gv_order_'+id);
   if(!token){status.textContent='Order access is not available on this device.';return;}
-  status.textContent='Checking order status...';
+  status.textContent='Checking your order...';
   try{
     const r=await fetch('/api/my-order/'+encodeURIComponent(id),{
-      headers:{'Authorization':'Bearer '+token},
-      cache:'no-store'
+      headers:{'Authorization':'Bearer '+token},cache:'no-store'
     });
     const d=await r.json();
     if(!r.ok)throw new Error(d.error||'Could not check order.');
-    status.textContent='Order '+d.orderId+' — '+d.status.toUpperCase();
-    if(d.status==='approved' && d.downloadUrl){
-      const btn=document.createElement('button');
-      btn.type='button';
-      btn.textContent='Download PDF';
-      btn.style.cssText='display:block;margin-top:12px;padding:12px;border-radius:8px;background:#8bf0b1;color:#160d1b;font-weight:bold;border:0;cursor:pointer';
-      btn.onclick=()=>downloadOrder(id);
-      status.appendChild(document.createElement('br'));
-      status.appendChild(btn);
-    }else{
-      status.append(' — Payment is waiting for admin verification.');
-    }
-  }catch(e){
-    status.textContent='Status check failed: '+e.message;
-  }
+    showOrderDashboard(id,d.status);
+    status.textContent=d.status==='approved'?'Download is ready.':'Payment is waiting for admin verification.';
+  }catch(e){status.textContent='Status check failed: '+e.message;}
 }
 
-async function downloadOrder(id){
-  const status=document.getElementById('utrStatus');
+function downloadOrder(id){
   const token=localStorage.getItem('gv_order_'+id);
-  if(!token){status.textContent='Order access is not available on this device.';return;}
-  status.textContent='Preparing your PDF...';
-  try{
-    const r=await fetch('/api/my-order/'+encodeURIComponent(id)+'/download',{
-      headers:{'Authorization':'Bearer '+token}
-    });
-    if(!r.ok){
-      const d=await r.json();
-      throw new Error(d.error||'Download failed.');
+  const message=document.getElementById('downloadMessage');
+  const bar=document.getElementById('orderProgressBar');
+  if(!token){message.textContent='Order access is not available on this device.';return;}
+  message.textContent='Preparing your PDF...';
+  bar.style.width='0%';
+  const xhr=new XMLHttpRequest();
+  xhr.open('GET','/api/my-order/'+encodeURIComponent(id)+'/download');
+  xhr.setRequestHeader('Authorization','Bearer '+token);
+  xhr.responseType='blob';
+  xhr.onprogress=e=>{
+    if(e.lengthComputable){
+      const percent=Math.round(e.loaded/e.total*100);
+      bar.style.width=percent+'%';
+      message.textContent='Downloading PDF... '+percent+'%';
+    }else{
+      message.textContent='Downloading your PDF...';
     }
-    const blob=await r.blob();
-    const url=URL.createObjectURL(blob);
+  };
+  xhr.onload=()=>{
+    if(xhr.status<200||xhr.status>=300){
+      const reader=new FileReader();
+      reader.onload=()=>{try{message.textContent=JSON.parse(reader.result).error||'Download failed.';}catch(e){message.textContent='Download failed.';}};
+      reader.readAsText(xhr.response);return;
+    }
+    lastDownloadedUrl=URL.createObjectURL(xhr.response);
     const a=document.createElement('a');
-    a.href=url;
+    a.href=lastDownloadedUrl;
     a.download='GlamVerse-AI-Ebook.pdf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
-    status.textContent='Your PDF download has started.';
-  }catch(e){
-    status.textContent='Download failed: '+e.message;
-  }
+    document.body.appendChild(a);a.click();a.remove();
+    bar.style.width='100%';
+    message.textContent='✓ Download complete! Your PDF has been saved to your device.';
+    document.getElementById('downloadActions').innerHTML=
+      '<button type="button" class="download-action" onclick="downloadOrder(currentOrderId)">Download Again</button><button type="button" class="download-action secondary" onclick="openDownloadedPDF()">Open PDF</button>';
+  };
+  xhr.onerror=()=>{message.textContent='Network error. Please try downloading again.';};
+  xhr.send();
 }
 
+function openDownloadedPDF(){
+  if(lastDownloadedUrl)window.open(lastDownloadedUrl,'_blank');
+}
 function demoPay(){
  const email=document.getElementById('buyerEmail').value;
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
