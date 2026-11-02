@@ -144,14 +144,14 @@ app.delete('/api/admin/orders/:id', adminOnly, async (req, res) => {
 
     if (!result.rowCount) {
       return res.status(404).json({
-        error: 'Pending order नहीं मिला। Approved orders delete नहीं होंगे।'
+        error: 'Pending order not found. Approved orders cannot be deleted.'
       });
     }
 
-    res.json({ ok: true, message: 'Pending order सफलतापूर्वक delete हुआ।' });
+    res.json({ ok: true, message: 'Pending order deleted successfully.' });
   } catch (e) {
     console.error('Order delete failed:', e.message);
-    res.status(500).json({ error: 'Order delete नहीं हो सका।' });
+    res.status(500).json({ error: 'Unable to delete order.' });
   }
 });
 
@@ -169,15 +169,15 @@ app.post('/api/admin/orders/:id/approve', adminOnly, async (req, res) => {
 
     const item = PRODUCTS[order.product];
     if (!item || !item.deliverable || !item.file)
-      return res.status(400).json({ error: 'इस प्रोडक्ट की PDF अभी सेट नहीं है।' });
+      return res.status(400).json({ error: 'The PDF for this product is not configured yet.' });
 
     const pdfPath = path.join(__dirname, item.file);
     const fs = require('fs');
     if (!fs.existsSync(pdfPath))
-      return res.status(400).json({ error: 'PDF file नहीं मिली।' });
+      return res.status(400).json({ error: 'PDF file not found.' });
 
     if (!process.env.RESEND_API_KEY)
-      return res.status(503).json({ error: 'Resend API Key सेट नहीं है।' });
+      return res.status(503).json({ error: 'Resend API key is not configured.' });
 
     const resend = new Resend(process.env.RESEND_API_KEY);
     const pdfContent = fs.readFileSync(pdfPath);
