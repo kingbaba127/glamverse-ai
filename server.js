@@ -25,8 +25,8 @@ const pool = new Pool({
 
 const PRODUCTS = {
   '3D Cartoon Reel Starter': { amount: 99, file: 'starter.pdf', deliverable: true },
-  'AI Fashion & Beauty Pack': { amount: 149, file: null, deliverable: false },
-  'Ultimate AI Reel Bundle': { amount: 199, file: null, deliverable: false }
+  'AI Fashion & Beauty Pack': { amount: 149, file: 'fashion.pdf', deliverable: true },
+  'Ultimate AI Reel Bundle': { amount: 199, file: 'ultimate.pdf', deliverable: true }
 };
 
 app.use(helmet({ contentSecurityPolicy: false }));
