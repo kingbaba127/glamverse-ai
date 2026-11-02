@@ -3,7 +3,7 @@ const session = require('express-session');
 const PgSession = require('connect-pg-simple')(session);
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
@@ -176,30 +176,28 @@ app.post('/api/admin/orders/:id/approve', adminOnly, async (req, res) => {
     if (!fs.existsSync(pdfPath))
       return res.status(400).json({ error: 'PDF file not found.' });
 
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-      return res.status(503).json({ error: 'Gmail SMTP settings are missing.' });
+    if (!process.env.RESEND_API_KEY) {
+      return res.status(503).json({ error: 'Resend API key is not configured.' });
     }
 
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD
-      }
-    });
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const pdfContent = fs.readFileSync(pdfPath);
 
-    await transporter.sendMail({
-      from: `"GlamVerse AI" <${process.env.GMAIL_USER}>`,
-      to: order.email,
+    const { data, error } = await resend.emails.send({
+      from: process.env.MAIL_FROM || 'GlamVerse AI <onboarding@resend.dev>',
+      to: [order.email],
       subject: 'Your GlamVerse AI e-book is ready',
       text: `Thank you for your order ${order.id}. Your payment was manually verified. Your e-book is attached.`,
       attachments: [{
         filename: path.basename(item.file),
-        path: pdfPath
+        content: pdfContent.toString('base64')
       }]
     });
+
+    if (error) {
+      console.error('Resend email failed:', error.message);
+      return res.status(502).json({ error: 'Resend email failed.' });
+    }
 
     await pool.query(
       `UPDATE orders SET status = 'approved', approved_at = NOW() WHERE id = $1`,
