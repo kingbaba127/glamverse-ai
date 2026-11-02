@@ -3,7 +3,7 @@ const session = require('express-session');
 const PgSession = require('connect-pg-simple')(session);
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
@@ -60,16 +60,6 @@ function safeEqual(a, b) {
   const aa = Buffer.from(String(a || ''));
   const bb = Buffer.from(String(b || ''));
   return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
-}
-
-function mailer() {
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || 'false') === 'true',
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-  });
 }
 
 function formatOrder(row) {
@@ -166,20 +156,27 @@ app.post('/api/admin/orders/:id/approve', adminOnly, async (req, res) => {
     if (!fs.existsSync(pdfPath))
       return res.status(400).json({ error: 'PDF file नहीं मिली।' });
 
-    const transport = mailer();
-    if (!transport)
-      return res.status(503).json({ error: 'Email SMTP सेट नहीं है।' });
+    if (!process.env.RESEND_API_KEY)
+      return res.status(503).json({ error: 'Resend API Key सेट नहीं है।' });
 
-    await transport.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
-      to: order.email,
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const pdfContent = fs.readFileSync(pdfPath);
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.MAIL_FROM || 'GlamVerse AI <onboarding@resend.dev>',
+      to: [order.email],
       subject: 'Your GlamVerse AI e-book is ready',
       text: `Thank you for your order ${order.id}. Your payment was manually verified. Your e-book is attached.`,
       attachments: [{
         filename: 'GlamVerse_AI_3D_Cartoon_Reel_Prompt_Starter.pdf',
-        path: pdfPath
+        content: pdfContent.toString('base64')
       }]
     });
+
+    if (error) {
+      console.error('Resend email failed:', error.message);
+      return res.status(502).json({ error: 'Resend email failed. Check sender and recipient settings.' });
+    }
 
     await pool.query(
       `UPDATE orders SET status = 'approved', approved_at = NOW() WHERE id = $1`,
