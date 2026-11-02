@@ -92,16 +92,20 @@ app.post('/api/orders', async (req, res) => {
     const id = 'GV-' + Date.now().toString(36).toUpperCase() +
       '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
 
+    const accessToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(accessToken).digest('hex');
+
     const result = await pool.query(
-      `INSERT INTO orders (id, email, utr, product, amount)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO orders (id, email, utr, product, amount, download_token)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, status`,
-      [id, String(email).trim().toLowerCase(), String(utr).trim(), product, item.amount]
+      [id, String(email).trim().toLowerCase(), String(utr).trim(), product, item.amount, tokenHash]
     );
 
     res.status(201).json({
       orderId: result.rows[0].id,
-      status: result.rows[0].status
+      status: result.rows[0].status,
+      accessToken
     });
   } catch (e) {
     if (e.code === '23505')
@@ -109,6 +113,61 @@ app.post('/api/orders', async (req, res) => {
     console.error('Order save failed:', e.message);
     res.status(500).json({ error: 'Order could not be saved.' });
   }
+});
+
+async function verifyCustomerToken(req, res, next) {
+  try {
+    const token = String(req.headers.authorization || '').replace(/^Bearer /i, '');
+    if (!/^[a-f0-9]{64}$/.test(token)) {
+      return res.status(401).json({ error: 'Invalid download access.' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const result = await pool.query(
+      'SELECT * FROM orders WHERE id = $1 AND download_token = $2',
+      [req.params.id, tokenHash]
+    );
+
+    if (!result.rowCount) {
+      return res.status(401).json({ error: 'Order access not found. Use the original device and order details.' });
+    }
+
+    req.customerOrder = result.rows[0];
+    next();
+  } catch (e) {
+    console.error('Customer order check failed:', e.message);
+    res.status(500).json({ error: 'Could not check order.' });
+  }
+}
+
+app.get('/api/my-order/:id', verifyCustomerToken, (req, res) => {
+  const order = req.customerOrder;
+  const item = PRODUCTS[order.product];
+  res.json({
+    orderId: order.id,
+    product: order.product,
+    status: order.status,
+    downloadUrl: order.status === 'approved' && item && item.file
+      ? '/api/my-order/' + encodeURIComponent(order.id) + '/download'
+      : null
+  });
+});
+
+app.get('/api/my-order/:id/download', verifyCustomerToken, (req, res) => {
+  const order = req.customerOrder;
+  if (order.status !== 'approved') {
+    return res.status(403).json({ error: 'Payment is not approved yet.' });
+  }
+
+  const item = PRODUCTS[order.product];
+  if (!item || !item.deliverable || !item.file) {
+    return res.status(404).json({ error: 'PDF is not available.' });
+  }
+
+  const pdfPath = path.join(__dirname, item.file);
+  res.download(pdfPath, path.basename(item.file), (err) => {
+    if (err) console.error('PDF download failed:', err.message);
+  });
 });
 
 app.post('/admin/login', (req, res) => {
@@ -169,45 +228,25 @@ app.post('/api/admin/orders/:id/approve', adminOnly, async (req, res) => {
 
     const item = PRODUCTS[order.product];
     if (!item || !item.deliverable || !item.file)
-      return res.status(400).json({ error: 'The PDF for this product is not configured yet.' });
+      return res.status(400).json({ error: 'The PDF for this product is not configured.' });
 
-    const pdfPath = path.join(__dirname, item.file);
     const fs = require('fs');
+    const pdfPath = path.join(__dirname, item.file);
     if (!fs.existsSync(pdfPath))
       return res.status(400).json({ error: 'PDF file not found.' });
-
-    if (!process.env.RESEND_API_KEY) {
-      return res.status(503).json({ error: 'Resend API key is not configured.' });
-    }
-
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const pdfContent = fs.readFileSync(pdfPath);
-
-    const { data, error } = await resend.emails.send({
-      from: process.env.MAIL_FROM || 'GlamVerse AI <onboarding@resend.dev>',
-      to: [order.email],
-      subject: 'Your GlamVerse AI e-book is ready',
-      text: `Thank you for your order ${order.id}. Your payment was manually verified. Your e-book is attached.`,
-      attachments: [{
-        filename: path.basename(item.file),
-        content: pdfContent.toString('base64')
-      }]
-    });
-
-    if (error) {
-      console.error('Resend email failed:', error.message);
-      return res.status(502).json({ error: 'Resend email failed.' });
-    }
 
     await pool.query(
       `UPDATE orders SET status = 'approved', approved_at = NOW() WHERE id = $1`,
       [order.id]
     );
 
-    res.json({ ok: true, message: 'Payment marked verified and PDF emailed.' });
+    res.json({
+      ok: true,
+      message: 'Payment approved. Customer can now download the PDF from the website.'
+    });
   } catch (e) {
     console.error('Approval failed:', e.message);
-    res.status(502).json({ error: 'Email send failed or database error. Check settings.' });
+    res.status(500).json({ error: 'Could not approve order. Check server logs.' });
   }
 });
 

@@ -67,7 +67,7 @@ footer{border-top:1px solid #ffffff15;padding:28px 0;color:var(--muted);font-siz
   <button type="button" class="btn secondary" style="width:100%" onclick="submitUtr()">Submit UTR</button>
   <p id="utrStatus" class="tiny" aria-live="polite" style="margin:10px 0 0"></p>
 </div>
-<button class="btn paybtn" onclick="demoPay()">Proceed to Payment</button><p class="tiny" style="margin-bottom:0">UPI payments are manual. Submitting your UTR creates an order. Your PDF will be sent only after the admin verifies your payment.</p></div></div>
+<button class="btn paybtn" onclick="demoPay()">Proceed to Payment</button><p class="tiny" style="margin-bottom:0">UPI payments are manual. Submitting your UTR creates an order. After admin approval, you can check your order here and download your PDF.</p></div></div>
 <script>
 let selected={name:'',price:0},method='UPI';
 function checkout(name,price){selected={name,price};document.getElementById('orderName').textContent=name;document.getElementById('orderPrice').textContent='₹'+price;document.getElementById('upiQrPanel').style.display='block';document.getElementById('checkoutModal').classList.add('show');}
@@ -85,12 +85,77 @@ async function submitUtr(){
    const response=await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,utr,product:selected.name,amount:selected.price})});
    const data=await response.json();
    if(!response.ok) throw new Error(data.error||'Order submission failed.');
-   status.textContent='Your order has been submitted. Order ID: '+data.orderId+'। Payment is not verified yet. Your PDF will be sent only after payment verification.';
+   localStorage.setItem('gv_order_'+data.orderId, data.accessToken);
+status.textContent='Order submitted successfully! Order ID: '+data.orderId+'. Payment is pending verification.';
+const checkBtn=document.createElement('button');
+checkBtn.type='button';
+checkBtn.textContent='Check Order Status';
+checkBtn.style.cssText='display:block;margin-top:12px;padding:12px;border-radius:8px;background:#d66bc4;color:#160d1b;font-weight:bold;border:0;cursor:pointer';
+checkBtn.onclick=()=>checkOrder(data.orderId);
+status.appendChild(document.createElement('br'));
+status.appendChild(checkBtn);
    document.getElementById('utrInput').value='';
  } catch(e) {
    status.textContent='Order submission failed: '+e.message+'। Please try again when the website server is available.';
  } finally {btn.disabled=false;btn.textContent='Submit UTR';}
 }
+async function checkOrder(id){
+  const status=document.getElementById('utrStatus');
+  const token=localStorage.getItem('gv_order_'+id);
+  if(!token){status.textContent='Order access is not available on this device.';return;}
+  status.textContent='Checking order status...';
+  try{
+    const r=await fetch('/api/my-order/'+encodeURIComponent(id),{
+      headers:{'Authorization':'Bearer '+token},
+      cache:'no-store'
+    });
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Could not check order.');
+    status.textContent='Order '+d.orderId+' — '+d.status.toUpperCase();
+    if(d.status==='approved' && d.downloadUrl){
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.textContent='Download PDF';
+      btn.style.cssText='display:block;margin-top:12px;padding:12px;border-radius:8px;background:#8bf0b1;color:#160d1b;font-weight:bold;border:0;cursor:pointer';
+      btn.onclick=()=>downloadOrder(id);
+      status.appendChild(document.createElement('br'));
+      status.appendChild(btn);
+    }else{
+      status.append(' — Payment is waiting for admin verification.');
+    }
+  }catch(e){
+    status.textContent='Status check failed: '+e.message;
+  }
+}
+
+async function downloadOrder(id){
+  const status=document.getElementById('utrStatus');
+  const token=localStorage.getItem('gv_order_'+id);
+  if(!token){status.textContent='Order access is not available on this device.';return;}
+  status.textContent='Preparing your PDF...';
+  try{
+    const r=await fetch('/api/my-order/'+encodeURIComponent(id)+'/download',{
+      headers:{'Authorization':'Bearer '+token}
+    });
+    if(!r.ok){
+      const d=await r.json();
+      throw new Error(d.error||'Download failed.');
+    }
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='GlamVerse-AI-Ebook.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    status.textContent='Your PDF download has started.';
+  }catch(e){
+    status.textContent='Download failed: '+e.message;
+  }
+}
+
 function demoPay(){
  const email=document.getElementById('buyerEmail').value;
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
