@@ -1,5 +1,6 @@
 const express = require('express');
 const session = require('express-session');
+const PgSession = require('connect-pg-simple')(session);
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
@@ -31,6 +32,7 @@ const PRODUCTS = {
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '30kb' }));
 app.use(session({
+  store: new PgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET || 'change-this-before-deploying',
   resave: false,
   saveUninitialized: false,
