@@ -1,5 +1,73 @@
 <!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GlamVerse AI Admin</title>
-<style>body{font-family:system-ui;background:#100b18;color:#fff;margin:0;padding:20px}.box{max-width:900px;margin:25px auto;background:#21182b;padding:20px;border-radius:16px}input,button{padding:12px;border-radius:9px;border:1px solid #665078;margin:5px 0}input{background:#130e1b;color:white;width:95%}button{background:#d66bc4;color:#160d1b;font-weight:bold;cursor:pointer}.order{border:1px solid #60496d;border-radius:12px;padding:14px;margin:12px 0;overflow-wrap:anywhere}.muted{color:#c6b8ce}.pending{color:#ffd27d}.approved{color:#8bf0b1}</style></head><body><div class="box"><h1>GlamVerse AI — Admin</h1><div id="login"><p class="muted">Enter your admin password.</p><input id="pw" type="password" placeholder="Admin password"><button onclick="login()">Login</button></div><div id="panel" hidden><button onclick="load()">Refresh Orders</button> <button onclick="logout()">Logout</button><div id="orders"></div></div><p id="msg" class="muted"></p></div><script>
+<style>body{font-family:system-ui;background:#100b18;color:#fff;margin:0;padding:20px}.box{max-width:900px;margin:25px auto;background:#21182b;padding:20px;border-radius:16px}input,button{padding:12px;border-radius:9px;border:1px solid #665078;margin:5px 0}input{background:#130e1b;color:white;width:95%}button{background:#d66bc4;color:#160d1b;font-weight:bold;cursor:pointer}.order{border:1px solid #60496d;border-radius:12px;padding:14px;margin:12px 0;overflow-wrap:anywhere}.muted{color:#c6b8ce}.pending{color:#ffd27d}.approved{color:#8bf0b1}
+/* GLAMVERSE AI ADMIN - NEON PREMIUM */
+*{box-sizing:border-box}
+body{
+ background:radial-gradient(ellipse at top,#281033 0%,#100916 48%,#08060d 100%)!important;
+ color:#fff!important;
+ font-family:Arial,sans-serif!important;
+}
+.box{
+ background:linear-gradient(145deg,#21122b,#100b18)!important;
+ border:1px solid #bd39d6!important;
+ border-radius:20px!important;
+ box-shadow:0 0 22px #d946ef30,0 15px 45px #0008!important;
+}
+h1,h2,h3{color:#fff!important}
+.muted{color:#c9b5d2!important}
+input{
+ background:#100b18!important;
+ color:#fff!important;
+ border:1px solid #75417e!important;
+ border-radius:11px!important;
+ padding:13px!important;
+}
+input:focus{
+ outline:none!important;
+ border-color:#ec4899!important;
+ box-shadow:0 0 12px #ec489955!important;
+}
+button{
+ background:linear-gradient(100deg,#ec168d,#a020f0)!important;
+ color:#fff!important;
+ border:0!important;
+ border-radius:11px!important;
+ padding:12px 17px!important;
+ font-weight:800!important;
+ cursor:pointer!important;
+ box-shadow:0 0 15px #d946ef40!important;
+}
+button:active{transform:scale(.98)}
+.order{
+ background:linear-gradient(145deg,#24102f,#100b18)!important;
+ border:1px solid #75417e!important;
+ border-radius:15px!important;
+ padding:16px!important;
+ margin:13px 0!important;
+ box-shadow:0 0 15px #d946ef18!important;
+}
+.pending{
+ color:#ffd27d!important;
+ background:#493522!important;
+ border:1px solid #b88736!important;
+ border-radius:20px!important;
+ padding:5px 11px!important;
+}
+.approved{
+ color:#8bffb1!important;
+ background:#123b2b!important;
+ border:1px solid #278d58!important;
+ border-radius:20px!important;
+ padding:5px 11px!important;
+}
+#msg{color:#f3c9ff!important}
+@media(max-width:600px){
+ body{padding:14px!important}
+ .box{padding:20px!important;width:100%!important}
+ button{max-width:100%}
+}
+
+</style></head><body><div class="box"><h1>GlamVerse AI — Admin</h1><div id="login"><p class="muted">Enter your admin password.</p><input id="pw" type="password" placeholder="Admin password"><button onclick="login()">Login</button></div><div id="panel" hidden><button onclick="load()">Refresh Orders</button> <button onclick="logout()">Logout</button><div id="orders"></div></div><p id="msg" class="muted"></p></div><script>
 async function login(){let r=await fetch('/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pw').value})});let d=await r.json();if(!r.ok){msg.textContent=d.error;return}loginBox();load()}
 function loginBox(){document.getElementById('login').hidden=true;document.getElementById('panel').hidden=false}
 async function load(){
