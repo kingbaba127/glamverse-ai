@@ -9,6 +9,7 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'orders.json');
 const PDF_FILE = path.join(__dirname, 'starter.pdf');
