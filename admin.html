@@ -131,19 +131,24 @@ async function logout(){await fetch('/admin/logout',{method:'POST'});location.re
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 async function loadAnalytics(){
+  const ids=['aViews','aClicks','aUtr','aOrders','aSales'];
+  ids.forEach(id=>document.getElementById(id).textContent='Loading...');
   try{
-    const r=await fetch('/api/admin/analytics',{cache:'no-store'});
-    const d=await r.json();
-    if(!r.ok) throw new Error(d.error || 'Analytics unavailable');
-    document.getElementById('aViews').textContent=d.product_views;
-    document.getElementById('aClicks').textContent=d.buy_clicks;
-    document.getElementById('aUtr').textContent=d.utr_submissions;
-    document.getElementById('aOrders').textContent=d.approved_orders;
-    document.getElementById('aSales').textContent='₹'+Number(d.total_sales).toLocaleString('en-IN');
-  }catch(e){
-    ['aViews','aClicks','aUtr','aOrders','aSales'].forEach(id=>{
-      document.getElementById(id).textContent='Unavailable';
+    const r=await fetch('/api/admin/analytics?t='+Date.now(),{
+      cache:'no-store',
+      credentials:'same-origin'
     });
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error || 'HTTP '+r.status);
+    document.getElementById('aViews').textContent=d.product_views ?? 0;
+    document.getElementById('aClicks').textContent=d.buy_clicks ?? 0;
+    document.getElementById('aUtr').textContent=d.utr_submissions ?? 0;
+    document.getElementById('aOrders').textContent=d.approved_orders ?? 0;
+    document.getElementById('aSales').textContent='₹'+Number(d.total_sales || 0).toLocaleString('en-IN');
+    document.getElementById('msg').textContent='Analytics refreshed successfully.';
+  }catch(e){
+    ids.forEach(id=>document.getElementById(id).textContent='Unavailable');
+    document.getElementById('msg').textContent='Analytics error: '+e.message;
   }
 }
 
