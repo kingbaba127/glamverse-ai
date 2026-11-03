@@ -30,6 +30,15 @@ const visitorsTableReady = pool.query(`
   )
 `);
 
+const analyticsTableReady = pool.query(`
+  CREATE TABLE IF NOT EXISTS analytics_events (
+    id BIGSERIAL PRIMARY KEY,
+    event VARCHAR(40) NOT NULL,
+    product VARCHAR(120),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )
+`);
+
 const PRODUCTS = {
   '3D Cartoon Reel Starter': { amount: 99, file: 'starter.pdf', deliverable: true },
   'AI Fashion & Beauty Pack': { amount: 149, file: 'fashion.pdf', deliverable: true },
@@ -294,6 +303,54 @@ app.get('/api/admin/visitors', adminOnly, async (req, res) => {
     res.json({ total: result.rows[0].total });
   } catch (e) {
     res.status(500).json({ error: 'Could not load visitor count.' });
+  }
+});
+
+
+app.post('/api/analytics', async (req, res) => {
+  try {
+    await analyticsTableReady;
+    const { event, product } = req.body || {};
+    const allowed = ['product_view', 'buy_click', 'utr_submission'];
+    if (!allowed.includes(event)) return res.status(400).json({ error: 'Invalid event.' });
+    await pool.query(
+      'INSERT INTO analytics_events (event, product) VALUES ($1, $2)',
+      [event, typeof product === 'string' ? product.slice(0, 120) : null]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Analytics save failed:', e.message);
+    res.status(500).json({ error: 'Analytics unavailable.' });
+  }
+});
+
+app.get('/api/admin/analytics', adminOnly, async (req, res) => {
+  try {
+    await analyticsTableReady;
+    const result = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE event = 'product_view')::int AS product_views,
+        COUNT(*) FILTER (WHERE event = 'buy_click')::int AS buy_clicks,
+        COUNT(*) FILTER (WHERE event = 'utr_submission')::int AS utr_submissions
+      FROM analytics_events
+    `);
+    const sales = await pool.query(`
+      SELECT COUNT(*)::int AS approved_orders,
+             COALESCE(SUM(amount), 0)::numeric AS total_sales
+      FROM orders WHERE status = 'approved'
+    `);
+    const visitors = await pool.query(
+      'SELECT COUNT(*)::int AS total FROM unique_visitors'
+    );
+    res.json({
+      visitors: visitors.rows[0].total,
+      ...result.rows[0],
+      approved_orders: sales.rows[0].approved_orders,
+      total_sales: Number(sales.rows[0].total_sales)
+    });
+  } catch (e) {
+    console.error('Analytics fetch failed:', e.message);
+    res.status(500).json({ error: 'Could not load analytics.' });
   }
 });
 

@@ -360,4 +360,54 @@ document.getElementById('checkoutModal').addEventListener('click',e=>{if(e.targe
   }
 })();
 </script>
+
+<script>
+(async function(){
+  async function gvTrack(event, product) {
+    try {
+      await fetch('/api/analytics', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({event, product})
+      });
+    } catch(e) {}
+  }
+
+  document.querySelectorAll('.product').forEach(card => {
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            gvTrack('product_view', card.querySelector('h3')?.textContent?.trim() || 'Product');
+            observer.unobserve(card);
+          }
+        });
+      }, {threshold: 0.4});
+      observer.observe(card);
+    } else {
+      gvTrack('product_view', card.querySelector('h3')?.textContent?.trim() || 'Product');
+    }
+  });
+
+  if (typeof window.checkout === 'function') {
+    const oldCheckout = window.checkout;
+    window.checkout = function(name, price) {
+      gvTrack('buy_click', name);
+      return oldCheckout.apply(this, arguments);
+    };
+  }
+
+  if (typeof window.submitUtr === 'function') {
+    const oldSubmit = window.submitUtr;
+    window.submitUtr = async function() {
+      await oldSubmit.apply(this, arguments);
+      const msg = document.getElementById('utrStatus')?.textContent || '';
+      if (msg.includes('submitted successfully')) {
+        gvTrack('utr_submission', window.selected?.name || 'Product');
+      }
+    };
+  }
+})();
+</script>
+
 </body></html>

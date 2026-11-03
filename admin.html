@@ -71,7 +71,18 @@ button:active{transform:scale(.98)}
 <div class="order" style="border-color:#ec4899">
   <span class="muted">🌐 Total Unique Website Visitors</span>
   <h2 id="adminVisitorTotal" style="color:#ff65b7">Loading...</h2>
-</div><button onclick="load()">Refresh Orders</button> <button onclick="logout()">Logout</button><div id="orders"></div></div><p id="msg" class="muted"></p></div><script>
+</div>
+<div class="box" style="margin:18px 0;padding:18px;border:1px solid #8b45a5;border-radius:16px">
+<h2 style="color:#ff65b7">📊 Sales Analytics</h2>
+<p>Product Views: <b id="aViews">Loading...</b></p>
+<p>Buy Now Clicks: <b id="aClicks">Loading...</b></p>
+<p>UTR Submissions: <b id="aUtr">Loading...</b></p>
+<p>Approved Orders: <b id="aOrders">Loading...</b></p>
+<p>Total Sales: <b id="aSales">Loading...</b></p>
+<button onclick="loadAnalytics()">Refresh Analytics</button>
+</div>
+
+<button onclick="load()">Refresh Orders</button> <button onclick="logout()">Logout</button><div id="orders"></div></div><p id="msg" class="muted"></p></div><script>
 async function login(){let r=await fetch('/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pw').value})});let d=await r.json();if(!r.ok){msg.textContent=d.error;return}loginBox();load()}
 function loginBox(){document.getElementById('login').hidden=true;document.getElementById('panel').hidden=false}
 async function load(){
@@ -90,6 +101,7 @@ async function load(){
   box.innerHTML=data.length?data.map(o=>`<div class="order"><b>${esc(o.product)}</b> — ₹${o.amount}<p>Email: ${esc(o.email)}</p><p>UTR: ${esc(o.utr)}</p><p>Order: ${esc(o.id)}</p><p>Status: <b class="${o.status}">${esc(o.status)}</b></p>${o.status==="approved"?'<p style="color:#8bf0b1;font-weight:bold">✓ Customer PDF Download Unlocked</p>':'<p style="color:#ffd27d">Waiting for payment verification</p>'}<p class="muted">${new Date(o.createdAt).toLocaleString()}</p>${o.status==='pending'?`<button onclick="approve('${o.id}')">✓ Verify Payment & Unlock PDF</button> <button style="background:#e05252" onclick="deleteOrder('${o.id}')">Delete Order</button>`:''}</div>`).join(''):'No orders available.';
   msg.textContent='Orders loaded successfully.';
   loadVisitors();
+    loadAnalytics();
  } catch(e) {
   box.textContent='Error: '+e.message;
   msg.textContent='Refresh failed';
@@ -117,4 +129,22 @@ async function deleteOrder(id){
 }
 async function logout(){await fetch('/admin/logout',{method:'POST'});location.reload()}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+async function loadAnalytics(){
+  try{
+    const r=await fetch('/api/admin/analytics',{cache:'no-store'});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error || 'Analytics unavailable');
+    document.getElementById('aViews').textContent=d.product_views;
+    document.getElementById('aClicks').textContent=d.buy_clicks;
+    document.getElementById('aUtr').textContent=d.utr_submissions;
+    document.getElementById('aOrders').textContent=d.approved_orders;
+    document.getElementById('aSales').textContent='₹'+Number(d.total_sales).toLocaleString('en-IN');
+  }catch(e){
+    ['aViews','aClicks','aUtr','aOrders','aSales'].forEach(id=>{
+      document.getElementById(id).textContent='Unavailable';
+    });
+  }
+}
+
 </script></body></html>
