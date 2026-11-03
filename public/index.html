@@ -156,6 +156,11 @@ footer{border-top:1px solid #ffffff15;padding:28px 0;color:var(--muted);font-siz
 </div></section>
 <section id="why"><div class="eyebrow">BUILT FOR CREATORS</div><h2>Less Complexity, More Creativity.</h2><div class="features"><div class="feature"><div>🎬</div><b>Ready-to-use prompts</b><p>Clear prompts with subject, action, setting, lighting and camera direction.</p></div><div class="feature"><div>📱</div><b>Reels-first format</b><p>Designed around short vertical videos and quick scene planning.</p></div><div class="feature"><div>⚡</div><b>Digital delivery</b><p>After the real payment gateway is connected, buyers can receive their PDF automatically.</p></div></div></section>
 </main>
+
+<div id="gvVisitorCounter" style="max-width:1120px;margin:20px auto;padding:15px 20px;border:1px solid #a78bfa;border-radius:14px;background:#171321;color:#fff;text-align:center">
+  <span style="color:#aaa2b8">🌐 Total Unique Visitors</span>
+  <strong id="gvVisitorTotal" style="display:block;font-size:25px;color:#ff65b7">Loading...</strong>
+</div>
 <footer><span>© 2026 GlamVerse AI. All rights reserved.</span><span>Digital Products • Support Email: Add your email here</span></footer>
 </div>
 <div class="modal" id="checkoutModal" role="dialog" aria-modal="true"><div class="dialog"><button class="close" onclick="closeCheckout()">✕</button><div class="eyebrow">Secure checkout preview</div><h2 style="margin:8px 0 4px">Complete Your Order</h2><p class="sub" id="orderName">Selected Product</p><div style="display:flex;justify-content:space-between;border-top:1px solid #ffffff18;border-bottom:1px solid #ffffff18;padding:15px 0;margin:16px 0"><span>Order total</span><strong id="orderPrice">₹99</strong></div><label class="tiny" for="buyerEmail">Email Address for PDF Delivery</label><input class="field" id="buyerEmail" type="email" placeholder="you@example.com">
@@ -329,5 +334,30 @@ function demoPay(){
  }
 }
 document.getElementById('checkoutModal').addEventListener('click',e=>{if(e.target.id==='checkoutModal')closeCheckout()});
+</script>
+
+<script>
+(async function(){
+  const key = 'gv_visitor_id';
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = (crypto.randomUUID ? crypto.randomUUID() :
+      'gv-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    localStorage.setItem(key, id);
+  }
+  const display = document.getElementById('gvVisitorTotal');
+  try {
+    const response = await fetch('/api/visitor', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({visitorId:id})
+    });
+    if (!response.ok) throw new Error('Visitor API error');
+    const data = await response.json();
+    display.textContent = Number(data.total).toLocaleString('en-IN');
+  } catch(e) {
+    display.textContent = 'Temporarily unavailable';
+  }
+})();
 </script>
 </body></html>

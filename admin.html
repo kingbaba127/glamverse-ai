@@ -67,7 +67,11 @@ button:active{transform:scale(.98)}
  button{max-width:100%}
 }
 
-</style></head><body><div class="box"><h1>GlamVerse AI — Admin</h1><div id="login"><p class="muted">Enter your admin password.</p><input id="pw" type="password" placeholder="Admin password"><button onclick="login()">Login</button></div><div id="panel" hidden><button onclick="load()">Refresh Orders</button> <button onclick="logout()">Logout</button><div id="orders"></div></div><p id="msg" class="muted"></p></div><script>
+</style></head><body><div class="box"><h1>GlamVerse AI — Admin</h1><div id="login"><p class="muted">Enter your admin password.</p><input id="pw" type="password" placeholder="Admin password"><button onclick="login()">Login</button></div><div id="panel" hidden>
+<div class="order" style="border-color:#ec4899">
+  <span class="muted">🌐 Total Unique Website Visitors</span>
+  <h2 id="adminVisitorTotal" style="color:#ff65b7">Loading...</h2>
+</div><button onclick="load()">Refresh Orders</button> <button onclick="logout()">Logout</button><div id="orders"></div></div><p id="msg" class="muted"></p></div><script>
 async function login(){let r=await fetch('/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pw').value})});let d=await r.json();if(!r.ok){msg.textContent=d.error;return}loginBox();load()}
 function loginBox(){document.getElementById('login').hidden=true;document.getElementById('panel').hidden=false}
 async function load(){
@@ -85,9 +89,22 @@ async function load(){
   if(!r.ok) throw new Error(data.error||'Failed to load orders.');
   box.innerHTML=data.length?data.map(o=>`<div class="order"><b>${esc(o.product)}</b> — ₹${o.amount}<p>Email: ${esc(o.email)}</p><p>UTR: ${esc(o.utr)}</p><p>Order: ${esc(o.id)}</p><p>Status: <b class="${o.status}">${esc(o.status)}</b></p>${o.status==="approved"?'<p style="color:#8bf0b1;font-weight:bold">✓ Customer PDF Download Unlocked</p>':'<p style="color:#ffd27d">Waiting for payment verification</p>'}<p class="muted">${new Date(o.createdAt).toLocaleString()}</p>${o.status==='pending'?`<button onclick="approve('${o.id}')">✓ Verify Payment & Unlock PDF</button> <button style="background:#e05252" onclick="deleteOrder('${o.id}')">Delete Order</button>`:''}</div>`).join(''):'No orders available.';
   msg.textContent='Orders loaded successfully.';
+  loadVisitors();
  } catch(e) {
   box.textContent='Error: '+e.message;
   msg.textContent='Refresh failed';
+ }
+}
+
+async function loadVisitors(){
+ try {
+  const r = await fetch('/api/admin/visitors', {cache:'no-store'});
+  const d = await r.json();
+  if(!r.ok) throw new Error(d.error || 'Unable to load');
+  document.getElementById('adminVisitorTotal').textContent =
+    Number(d.total).toLocaleString('en-IN');
+ } catch(e) {
+  document.getElementById('adminVisitorTotal').textContent = 'Unavailable';
  }
 }
 async function approve(id){if(!confirm('Verify the payment in your UPI app first. Verify the payment in your UPI app first. Unlock PDF download for this customer?'))return;let r=await fetch('/api/admin/orders/'+encodeURIComponent(id)+'/approve',{method:'POST'});let d=await r.json();msg.textContent=d.message||d.error;load()}

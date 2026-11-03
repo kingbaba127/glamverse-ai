@@ -23,6 +23,13 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+const visitorsTableReady = pool.query(`
+  CREATE TABLE IF NOT EXISTS unique_visitors (
+    visitor_id VARCHAR(80) PRIMARY KEY,
+    first_seen TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )
+`);
+
 const PRODUCTS = {
   '3D Cartoon Reel Starter': { amount: 99, file: 'starter.pdf', deliverable: true },
   'AI Fashion & Beauty Pack': { amount: 149, file: 'fashion.pdf', deliverable: true },
@@ -247,6 +254,46 @@ app.post('/api/admin/orders/:id/approve', adminOnly, async (req, res) => {
   } catch (e) {
     console.error('Approval failed:', e.message);
     res.status(500).json({ error: 'Could not approve order. Check server logs.' });
+  }
+});
+
+
+app.post('/api/visitor', async (req, res) => {
+  try {
+    await visitorsTableReady;
+    const visitorId = String((req.body || {}).visitorId || '');
+    if (!/^[a-zA-Z0-9-]{16,80}$/.test(visitorId))
+      return res.status(400).json({ error: 'Invalid visitor ID.' });
+
+    await pool.query(
+      'INSERT INTO unique_visitors (visitor_id) VALUES ($1) ON CONFLICT DO NOTHING',
+      [visitorId]
+    );
+    const result = await pool.query('SELECT COUNT(*)::int AS total FROM unique_visitors');
+    res.json({ total: result.rows[0].total });
+  } catch (e) {
+    console.error('Visitor tracking failed:', e.message);
+    res.status(500).json({ error: 'Visitor count unavailable.' });
+  }
+});
+
+app.get('/api/visitors', async (req, res) => {
+  try {
+    await visitorsTableReady;
+    const result = await pool.query('SELECT COUNT(*)::int AS total FROM unique_visitors');
+    res.json({ total: result.rows[0].total });
+  } catch (e) {
+    res.status(500).json({ error: 'Visitor count unavailable.' });
+  }
+});
+
+app.get('/api/admin/visitors', adminOnly, async (req, res) => {
+  try {
+    await visitorsTableReady;
+    const result = await pool.query('SELECT COUNT(*)::int AS total FROM unique_visitors');
+    res.json({ total: result.rows[0].total });
+  } catch (e) {
+    res.status(500).json({ error: 'Could not load visitor count.' });
   }
 });
 
