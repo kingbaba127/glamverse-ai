@@ -163,7 +163,23 @@ footer{border-top:1px solid #ffffff15;padding:28px 0;color:var(--muted);font-siz
 </div>
 <footer><span>© 2026 GlamVerse AI. All rights reserved.</span><span>Digital Products • Support Email: Add your email here</span></footer>
 </div>
-<div class="modal" id="checkoutModal" role="dialog" aria-modal="true"><div class="dialog"><button class="close" onclick="closeCheckout()">✕</button><div class="eyebrow">Secure checkout preview</div><h2 style="margin:8px 0 4px">Complete Your Order</h2><p class="sub" id="orderName">Selected Product</p><div style="display:flex;justify-content:space-between;border-top:1px solid #ffffff18;border-bottom:1px solid #ffffff18;padding:15px 0;margin:16px 0"><span>Order total</span><strong id="orderPrice">₹99</strong></div><label class="tiny" for="buyerEmail">Email Address for PDF Delivery</label><input class="field" id="buyerEmail" type="email" placeholder="you@example.com">
+<div class="modal" id="checkoutModal" role="dialog" aria-modal="true"><div class="dialog"><button class="close" onclick="closeCheckout()">✕</button><div class="eyebrow">Secure checkout preview</div><h2 style="margin:8px 0 4px">Complete Your Order</h2>
+
+<div id="gv-trust-preview" style="background:#24102f;border:1px solid #a34caa;border-radius:14px;padding:14px;margin:14px 0;text-align:left">
+<h3 style="color:#ff8bd2;margin:0 0 10px">✨ What You Get</h3>
+<p>✓ Ready-to-use AI video prompts</p>
+<p>✓ 3D Cartoon, Fashion & Beauty Reel ideas</p>
+<p>✓ Digital PDF prompt pack</p>
+<p>✓ PDF download after payment verification</p>
+<hr style="border-color:#65416e;margin:12px 0">
+<h3 style="color:#ff8bd2">🔒 How Your Order Works</h3>
+<p>1. Enter your email address.</p>
+<p>2. Pay the exact price using the UPI QR.</p>
+<p>3. Submit your UTR / Transaction ID.</p>
+<p>4. After manual verification, download your PDF.</p>
+<p style="font-size:12px;color:#ffd27d">Payments are manually verified. Instant delivery is not promised.</p>
+</div>
+<p class="sub" id="orderName">Selected Product</p><div style="display:flex;justify-content:space-between;border-top:1px solid #ffffff18;border-bottom:1px solid #ffffff18;padding:15px 0;margin:16px 0"><span>Order total</span><strong id="orderPrice">₹99</strong></div><label class="tiny" for="buyerEmail">Email Address for PDF Delivery</label><input class="field" id="buyerEmail" type="email" placeholder="you@example.com">
 <div class="tiny">Choose a Payment Method</div><div class="methods"><button class="method active" onclick="chooseMethod(this,'UPI')">📲 UPI / QR Code</button><button class="method" onclick="chooseMethod(this,'Card')">💳 Card</button><button class="method" onclick="chooseMethod(this,'Net Banking')">🏦 Net Banking</button><button class="method" onclick="chooseMethod(this,'Wallet')">👛 Wallet</button></div>
 <div class="notice" id="paymentNotice">Scan the QR code using any UPI app and pay the exact amount shown above. Payments are manually verified; automatic payment gateway is not connected.</div>
 <div id="upiQrPanel" style="text-align:center;background:#fff;border-radius:16px;padding:14px;margin-top:12px;color:#222">
